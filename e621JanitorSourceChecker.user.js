@@ -5,6 +5,7 @@
 // @author       Tarrgon
 // @match        https://e621.net/posts/*
 // @updateURL    https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
+// @downloadURL  https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=e621.net
 // @connect      search.yiff.today
 // @grant        GM.xmlHttpRequest
