@@ -232,6 +232,7 @@ function roundTo(x, n) {
         if (sourceData.isPreview) {
           let clone = bvas.cloneNode(true)
           clone.title = `Uploaded version is preview image. Original version available.`
+          clone.style.color = "red"
           matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
         }
 
