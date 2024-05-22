@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.12
+// @version      0.13
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts/*
@@ -227,6 +227,12 @@ function roundTo(x, n) {
           embeddedInfo.after(unknown.cloneNode(true))
         } else {
           embeddedInfo.after(noMatches.cloneNode(true))
+        }
+
+        if (sourceData.isPreview) {
+          let clone = bvas.cloneNode(true)
+          clone.title = `Uploaded version is preview image. Original version available.`
+          matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
         }
 
         if (sourceData.dimensions && sourceData.fileType) {
