@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.15
+// @version      0.16
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts/*
@@ -14,7 +14,7 @@
 
 const md5Match = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa-solid", "fa-check-double")
+  i.classList.add("fa-solid", "fa-check-double", "jsv-icon")
   i.style.color = "lime"
   i.title = "MD5 match"
   return i
@@ -22,7 +22,7 @@ const md5Match = (() => {
 
 const dimensionAndFileTypeMatch = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa-solid", "fa-check")
+  i.classList.add("fa-solid", "fa-check", "jsv-icon")
   i.style.color = "lime"
   i.title = "Dimension and file type match"
   return i
@@ -30,7 +30,7 @@ const dimensionAndFileTypeMatch = (() => {
 
 const dimensionMatch = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa-solid", "fa-check")
+  i.classList.add("fa-solid", "fa-check", "jsv-icon")
   i.style.color = "yellow"
   i.title = "Dimension match"
   return i
@@ -38,14 +38,14 @@ const dimensionMatch = (() => {
 
 const aspectRatioMatch = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa-solid", "fa-square")
+  i.classList.add("fa-solid", "fa-square", "jsv-icon")
   i.title = "Approx. aspect ratio match"
   return i
 })();
 
 const fileTypeMatch = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa-solid", "fa-xmark")
+  i.classList.add("fa-solid", "fa-xmark", "jsv-icon")
   i.style.color = "yellow"
   i.title = "File type match"
   return i
@@ -53,7 +53,7 @@ const fileTypeMatch = (() => {
 
 const noMatches = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa-solid", "fa-xmark")
+  i.classList.add("fa-solid", "fa-xmark", "jsv-icon")
   i.style.color = "red"
   i.title = "No matches"
   return i
@@ -61,7 +61,7 @@ const noMatches = (() => {
 
 const spinner = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa-solid", "fa-spinner", "fa-spin")
+  i.classList.add("fa-solid", "fa-spinner", "fa-spin", "jsv-icon")
   i.style.color = "yellow"
   i.title = "Queued"
   return i
@@ -69,7 +69,7 @@ const spinner = (() => {
 
 const unknown = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa", "fa-question")
+  i.classList.add("fa", "fa-question", "jsv-icon")
   i.style.color = "yellow"
   i.title = "Unknown"
   return i
@@ -77,7 +77,7 @@ const unknown = (() => {
 
 const bvas = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa", "fa-plus")
+  i.classList.add("fa", "fa-plus", "jsv-icon")
   i.style.color = "lime"
   i.style.marginRight = "0.25rem"
   i.style.marginLeft = "0.25rem"
@@ -86,7 +86,7 @@ const bvas = (() => {
 
 const info = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa", "fa-circle-info")
+  i.classList.add("fa", "fa-circle-info", "jsv-icon")
   i.style.color = "cyan"
   i.style.marginRight = "0.25rem"
   return i
@@ -94,10 +94,19 @@ const info = (() => {
 
 const force = (() => {
   let i = document.createElement("i")
-  i.classList.add("fa", "fa-angles-down")
+  i.classList.add("fa", "fa-angles-down", "jsv-icon")
   i.style.color = "green"
   i.style.cursor = "pointer"
   i.title = "Get source data"
+  return i
+})();
+
+const reload = (() => {
+  let i = document.createElement("i")
+  i.classList.add("fa", "fa-rotate")
+  i.style.color = "green"
+  i.style.cursor = "pointer"
+  i.title = "Update source data"
   return i
 })();
 
@@ -147,6 +156,29 @@ async function getData(id, force = false) {
   }
 }
 
+async function update(id) {
+  return new Promise((resolve, reject) => {
+    let req = {
+      method: "GET",
+      url: `https://search.yiff.today/checksource/update/${id}?waitfordata=true`,
+      onload: function (response) {
+        try {
+          let data = JSON.parse(response.responseText)
+
+          resolve(data)
+        } catch (e) {
+          reject(e)
+        }
+      },
+      onerror: function (e) {
+        reject(e)
+      }
+    }
+
+    GM.xmlHttpRequest(req)
+  })
+}
+
 function approximateAspectRatio(val, lim) {
   let lower = [0, 1]
   let upper = [1, 0]
@@ -182,6 +214,7 @@ function roundTo(x, n) {
 }
 
 function processData(data) {
+  console.log(data)
   let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
   let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
   if (data.notPending) {
@@ -212,6 +245,22 @@ function processData(data) {
     return
   }
 
+  let links = document.querySelector(".source-links")
+  let reloadClone = reload.cloneNode()
+  reloadClone.addEventListener("click", async () => {
+    for (let ele of document.querySelectorAll(".jsv-icon")) {
+      ele.remove()
+    }
+    reloadClone.remove()
+    let links = document.querySelector(".source-links")
+    let spinny = spinner.cloneNode()
+    links.insertBefore(spinny, links.firstElementChild)
+    let data = await update(id)
+    spinny.remove()
+    processData(data)
+  })
+  links.insertBefore(reloadClone, links.firstElementChild)
+
   let allSourceLinks = Array.from(document.getElementById("post-information").querySelectorAll(".source-link"))
 
   let width = parseInt(document.querySelector("span[itemprop='width']").innerText)
@@ -222,6 +271,7 @@ function processData(data) {
 
   for (let [source, sourceData] of Object.entries(data)) {
     let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.children[0].href) == source || e.children[0].href == source)
+    console.log(matchingSourceEntry)
 
     if (matchingSourceEntry) {
 
