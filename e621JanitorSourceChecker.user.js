@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.14
+// @version      0.15
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts/*
@@ -92,27 +92,59 @@ const info = (() => {
   return i
 })();
 
-async function getData(id) {
-  return await new Promise((resolve, reject) => {
-    let req = {
-      method: "GET",
-      url: `https://search.yiff.today/checksource/${id}`,
-      onload: function (response) {
-        try {
-          let data = JSON.parse(response.responseText)
+const force = (() => {
+  let i = document.createElement("i")
+  i.classList.add("fa", "fa-angles-down")
+  i.style.color = "green"
+  i.style.cursor = "pointer"
+  i.title = "Get source data"
+  return i
+})();
 
-          resolve(data)
-        } catch (e) {
+async function getData(id, force = false) {
+  if (!force) {
+    return new Promise((resolve, reject) => {
+      let req = {
+        method: "GET",
+        url: `https://search.yiff.today/checksource/${id}`,
+        onload: function (response) {
+          try {
+            let data = JSON.parse(response.responseText)
+
+            resolve(data)
+          } catch (e) {
+            reject(e)
+          }
+        },
+        onerror: function (e) {
           reject(e)
         }
-      },
-      onerror: function (e) {
-        reject(e)
       }
-    }
 
-    GM.xmlHttpRequest(req)
-  })
+      GM.xmlHttpRequest(req)
+    })
+  } else {
+    return new Promise((resolve, reject) => {
+      let req = {
+        method: "GET",
+        url: `https://search.yiff.today/checksource/${id}?checkapproved=true&waitfordata=true`,
+        onload: function (response) {
+          try {
+            let data = JSON.parse(response.responseText)
+
+            resolve(data)
+          } catch (e) {
+            reject(e)
+          }
+        },
+        onerror: function (e) {
+          reject(e)
+        }
+      }
+
+      GM.xmlHttpRequest(req)
+    })
+  }
 }
 
 function approximateAspectRatio(val, lim) {
@@ -149,131 +181,149 @@ function roundTo(x, n) {
   return Math.floor(x * power) / power
 }
 
-(async function () {
-  'use strict';
+function processData(data) {
   let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
-  let isPending = allLi.some(e => e.innerText == "Status: Pending")
-
-  if (!isPending) return
-
   let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
-
-  try {
-    let data = await getData(id)
-
-    if (data.notPending) return
-
-    if (data.queued) {
+  if (data.notPending) {
+    let links = document.querySelector(".source-links")
+    let forceClone = force.cloneNode()
+    forceClone.addEventListener("click", async () => {
+      forceClone.remove()
       let links = document.querySelector(".source-links")
-      links.insertBefore(spinner.cloneNode(), links.firstElementChild)
-      return
-    } else if (data.unsupported) {
-      let links = document.querySelector(".source-links")
-      let noMatchesClone = noMatches.cloneNode()
-      noMatchesClone.title = "Unsupported"
-      links.insertBefore(noMatchesClone, links.firstElementChild)
-      return
-    }
+      let spinny = spinner.cloneNode()
+      links.insertBefore(spinny, links.firstElementChild)
+      let data = await getData(id, true)
+      spinny.remove()
+      processData(data)
+    })
+    links.insertBefore(forceClone, links.firstElementChild)
+    return
+  }
 
-    let allSourceLinks = Array.from(document.getElementById("post-information").querySelectorAll(".source-link"))
+  if (data.queued) {
+    let links = document.querySelector(".source-links")
+    links.insertBefore(spinner.cloneNode(), links.firstElementChild)
+    return
+  } else if (data.unsupported) {
+    let links = document.querySelector(".source-links")
+    let noMatchesClone = noMatches.cloneNode()
+    noMatchesClone.title = "Unsupported"
+    links.insertBefore(noMatchesClone, links.firstElementChild)
+    return
+  }
 
-    let width = parseInt(document.querySelector("span[itemprop='width']").innerText)
-    let height = parseInt(document.querySelector("span[itemprop='height']").innerText)
-    let fileType = allLi.find(e => e.innerText.trim().startsWith("Type:")).innerText.trim().slice(6).toLowerCase()
+  let allSourceLinks = Array.from(document.getElementById("post-information").querySelectorAll(".source-link"))
 
-    let approxAspectRatio = approximateAspectRatio(width / height, 50)
+  let width = parseInt(document.querySelector("span[itemprop='width']").innerText)
+  let height = parseInt(document.querySelector("span[itemprop='height']").innerText)
+  let fileType = allLi.find(e => e.innerText.trim().startsWith("Type:")).innerText.trim().slice(6).toLowerCase()
 
-    for (let [source, sourceData] of Object.entries(data)) {
-      let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.children[0].href) == source || e.children[0].href == source)
+  let approxAspectRatio = approximateAspectRatio(width / height, 50)
 
-      if (matchingSourceEntry) {
+  for (let [source, sourceData] of Object.entries(data)) {
+    let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.children[0].href) == source || e.children[0].href == source)
 
-        let embeddedInfo = info.cloneNode(true)
+    if (matchingSourceEntry) {
 
-        let matchingAspectRatio = false
+      let embeddedInfo = info.cloneNode(true)
 
-        if (sourceData.dimensions) {
-          let sourceApproxAspectRatio = approximateAspectRatio(width / height, 50)
-          matchingAspectRatio = approxAspectRatio[0] == sourceApproxAspectRatio[0] && approxAspectRatio[1] == sourceApproxAspectRatio[1]
+      let matchingAspectRatio = false
 
-          embeddedInfo.title = `${sourceData.dimensions.width}x${sourceData.dimensions.height} (${roundTo(sourceData.dimensions.width / width, 2)}:${roundTo(sourceData.dimensions.height / height, 2)}) ${sourceData.fileType.toUpperCase()}`
-          matchingSourceEntry.prepend(embeddedInfo)
+      if (sourceData.dimensions) {
+        let sourceApproxAspectRatio = approximateAspectRatio(width / height, 50)
+        matchingAspectRatio = approxAspectRatio[0] == sourceApproxAspectRatio[0] && approxAspectRatio[1] == sourceApproxAspectRatio[1]
+
+        embeddedInfo.title = `${sourceData.dimensions.width}x${sourceData.dimensions.height} (${roundTo(sourceData.dimensions.width / width, 2)}:${roundTo(sourceData.dimensions.height / height, 2)}) ${sourceData.fileType.toUpperCase()}`
+        matchingSourceEntry.prepend(embeddedInfo)
+      } else {
+        embeddedInfo.title = `UNK`
+        matchingSourceEntry.prepend(embeddedInfo)
+      }
+
+      if (sourceData.md5Match) {
+        embeddedInfo.after(md5Match.cloneNode(true))
+      } else if (sourceData.dimensionMatch && sourceData.fileTypeMatch) {
+        embeddedInfo.after(dimensionAndFileTypeMatch.cloneNode(true))
+      } else if (sourceData.dimensionMatch) {
+        embeddedInfo.after(dimensionMatch.cloneNode(true))
+      } else if (matchingAspectRatio) {
+        if (sourceData.fileTypeMatch) {
+          let clone = aspectRatioMatch.cloneNode(true)
+          clone.title += " file type match"
+          clone.style.color = "lime"
+          embeddedInfo.after(clone)
         } else {
-          embeddedInfo.title = `UNK`
-          matchingSourceEntry.prepend(embeddedInfo)
+          let clone = aspectRatioMatch.cloneNode(true)
+          clone.title += " different file type"
+          clone.style.color = "yellow"
+          embeddedInfo.after(clone)
         }
+      } else if (sourceData.fileTypeMatch) {
+        embeddedInfo.after(fileTypeMatch.cloneNode(true))
+      } else if (sourceData.unknown) {
+        embeddedInfo.after(unknown.cloneNode(true))
+      } else {
+        embeddedInfo.after(noMatches.cloneNode(true))
+      }
 
-        if (sourceData.md5Match) {
-          embeddedInfo.after(md5Match.cloneNode(true))
-        } else if (sourceData.dimensionMatch && sourceData.fileTypeMatch) {
-          embeddedInfo.after(dimensionAndFileTypeMatch.cloneNode(true))
-        } else if (sourceData.dimensionMatch) {
-          embeddedInfo.after(dimensionMatch.cloneNode(true))
-        } else if (matchingAspectRatio) {
-          if (sourceData.fileTypeMatch) {
-            let clone = aspectRatioMatch.cloneNode(true)
-            clone.title += " file type match"
-            clone.style.color = "lime"
-            embeddedInfo.after(clone)
-          } else {
-            let clone = aspectRatioMatch.cloneNode(true)
-            clone.title += " different file type"
-            clone.style.color = "yellow"
-            embeddedInfo.after(clone)
-          }
-        } else if (sourceData.fileTypeMatch) {
-          embeddedInfo.after(fileTypeMatch.cloneNode(true))
-        } else if (sourceData.unknown) {
-          embeddedInfo.after(unknown.cloneNode(true))
-        } else {
-          embeddedInfo.after(noMatches.cloneNode(true))
-        }
+      if (sourceData.isPreview) {
+        let clone = bvas.cloneNode(true)
+        clone.title = `Matched version is preview image. Original version available.`
+        clone.style.color = "red"
+        matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
+      }
 
-        if (sourceData.isPreview) {
-          let clone = bvas.cloneNode(true)
-          clone.title = `Matched version is preview image. Original version available.`
-          clone.style.color = "red"
-          matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
-        }
-
-        if (sourceData.dimensions && sourceData.fileType) {
-          if (sourceData.dimensions.width > width && sourceData.dimensions.height > height) {
-            if (fileType == "jpg" && sourceData.fileType == "png") {
+      if (sourceData.dimensions && sourceData.fileType) {
+        if (sourceData.dimensions.width > width && sourceData.dimensions.height > height) {
+          if (fileType == "jpg" && sourceData.fileType == "png") {
+            let clone = bvas.cloneNode(true)
+            clone.title = `Bigger dimensions, PNG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+            matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
+          } else if (fileType == "png" && sourceData.fileType == "jpg") {
+            if (sourceData.dimensions.width >= width * 3 && sourceData.dimensions.height >= height * 3) {
               let clone = bvas.cloneNode(true)
-              clone.title = `Bigger dimensions, PNG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+              clone.title = `3x size, JPG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
               matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
-            } else if (fileType == "png" && sourceData.fileType == "jpg") {
-              if (sourceData.dimensions.width >= width * 3 && sourceData.dimensions.height >= height * 3) {
-                let clone = bvas.cloneNode(true)
-                clone.title = `3x size, JPG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
-                matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
-              } else if (sourceData.dimensions.width >= width * 2 && sourceData.dimensions.height >= height * 2) {
-                let clone = bvas.cloneNode(true)
-                clone.style.color = "yellow"
-                clone.title = `2x size, JPG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
-                matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
-              }
-            } else if (fileType == sourceData.fileType) {
+            } else if (sourceData.dimensions.width >= width * 2 && sourceData.dimensions.height >= height * 2) {
               let clone = bvas.cloneNode(true)
-              clone.title = `Bigger (${sourceData.fileType.toUpperCase()}) ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
-              matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
-            }
-          } else if (fileType == "jpg" && sourceData.fileType == "png") {
-            if (width <= sourceData.dimensions.width * 1.5 && height <= sourceData.dimensions.height * 1.5) {
-              let clone = bvas.cloneNode(true)
-              clone.title = `PNG Version ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+              clone.style.color = "yellow"
+              clone.title = `2x size, JPG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
               matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
             }
           } else if (fileType == sourceData.fileType) {
-            if (sourceData.dimensions.width > width || sourceData.dimensions.height > height) {
-              let clone = bvas.cloneNode(true)
-              clone.title = `Bigger (${sourceData.fileType.toUpperCase()}) ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
-              matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
-            }
+            let clone = bvas.cloneNode(true)
+            clone.title = `Bigger (${sourceData.fileType.toUpperCase()}) ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+            matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
+          }
+        } else if (fileType == "jpg" && sourceData.fileType == "png") {
+          if (width <= sourceData.dimensions.width * 1.5 && height <= sourceData.dimensions.height * 1.5) {
+            let clone = bvas.cloneNode(true)
+            clone.title = `PNG Version ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+            matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
+          }
+        } else if (fileType == sourceData.fileType) {
+          if (sourceData.dimensions.width > width || sourceData.dimensions.height > height) {
+            let clone = bvas.cloneNode(true)
+            clone.title = `Bigger (${sourceData.fileType.toUpperCase()}) ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+            matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
           }
         }
       }
     }
+  }
+}
+
+(async function () {
+  'use strict';
+  let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
+  let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
+  console.log("LOADED")
+  try {
+    console.log("GETTING DATA", id)
+    let data = await getData(id)
+    console.log("PROCESSING")
+
+    processData(data)
 
   } catch (e) {
     console.error(e)
