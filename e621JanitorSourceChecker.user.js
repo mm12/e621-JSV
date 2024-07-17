@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.18
+// @version      0.19
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts/*
@@ -446,7 +446,7 @@
     if (document.querySelectorAll(".source-link").length == 0) {
       let kemonoData = await getPostKemonoData()
 
-      if (kemonoData) {
+      if (kemonoData?.posts) {
         let first = kemonoData.posts[0]
         let links = document.querySelector(".source-links")
         let kemonoIconClone = kemonoIcon.cloneNode()
