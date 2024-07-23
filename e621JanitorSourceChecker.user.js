@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.19
+// @version      0.20
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts/*
+// @match        https://e621.net/post_replacements/*
 // @updateURL    https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
 // @downloadURL  https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=e621.net
@@ -19,6 +20,29 @@
 
 (async function () {
   'use strict';
+
+  if (window.location.href.startsWith("https://e621.net/post_replacements/")) {
+    let params = new URLSearchParams(window.location.search)
+
+    if (!params.has("url") || !params.has("additional_source") || !params.has("reason")) return
+
+    let urlField = document.getElementById("replacement-uploader").querySelector("input[type='text']")
+    let additionalSourceField = document.querySelector(".upload-source-row").firstElementChild
+    let reasonField = document.querySelector("[list='reason-datalist']")
+
+    urlField.value = params.get("url")
+    additionalSourceField.value = params.get("additional_source")
+    reasonField.value = params.get("reason")
+
+    setTimeout(() => {
+      urlField.dispatchEvent(new Event("input"))
+      additionalSourceField.dispatchEvent(new Event("input"))
+      reasonField.dispatchEvent(new Event("input"))
+    }, 100)
+
+    return
+  }
+
   const colors = {
     "lime": ["lime", "#D833B0"],
     "yellow": ["yellow", "#FEFE62"],
@@ -393,6 +417,12 @@
           let clone = bvas.cloneNode(true)
           clone.title = `Matched version is preview image. Original version available.`
           clone.style.color = colors["red"][colorIndex]
+          if (sourceData.originalUrl) {
+            clone.style.cursor = "pointer"
+            clone.addEventListener("click", () => {
+              window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&additional_source=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+            })
+          }
           matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
         }
 
