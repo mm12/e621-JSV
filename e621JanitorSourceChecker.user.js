@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.20
+// @version      0.21
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts/*
@@ -24,19 +24,20 @@
   if (window.location.href.startsWith("https://e621.net/post_replacements/")) {
     let params = new URLSearchParams(window.location.search)
 
-    if (!params.has("url") || !params.has("additional_source") || !params.has("reason")) return
+    if (!params.has("url") || !params.has("reason")) return
 
     let urlField = document.getElementById("replacement-uploader").querySelector("input[type='text']")
-    let additionalSourceField = document.querySelector(".upload-source-row").firstElementChild
+    let noSourceBox = document.getElementById("no_source")
     let reasonField = document.querySelector("[list='reason-datalist']")
 
     urlField.value = params.get("url")
-    additionalSourceField.value = params.get("additional_source")
     reasonField.value = params.get("reason")
+
+    noSourceBox.checked = true
 
     setTimeout(() => {
       urlField.dispatchEvent(new Event("input"))
-      additionalSourceField.dispatchEvent(new Event("input"))
+      noSourceBox.dispatchEvent(new Event("change"))
       reasonField.dispatchEvent(new Event("input"))
     }, 100)
 
@@ -420,7 +421,7 @@
           if (sourceData.originalUrl) {
             clone.style.cursor = "pointer"
             clone.addEventListener("click", () => {
-              window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&additional_source=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+              window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
             })
           }
           matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
