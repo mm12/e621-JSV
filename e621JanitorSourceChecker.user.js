@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.21
+// @version      0.22 
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
-// @match        https://e621.net/posts/*
+// @match        https://e621.net/posts*
 // @match        https://e621.net/post_replacements/*
 // @updateURL    https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
 // @downloadURL  https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
@@ -61,6 +61,10 @@
     i.classList.add("fa-solid", "fa-check-double", "jsv-icon")
     i.style.color = colors["lime"][colorIndex]
     i.title = "MD5 match"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -69,6 +73,10 @@
     i.classList.add("fa-solid", "fa-check", "jsv-icon")
     i.style.color = colors["lime"][colorIndex]
     i.title = "Dimension and file type match"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -77,6 +85,10 @@
     i.classList.add("fa-solid", "fa-check", "jsv-icon")
     i.style.color = colors["yellow"][colorIndex]
     i.title = "Dimension match"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -84,6 +96,10 @@
     let i = document.createElement("i")
     i.classList.add("fa-solid", "fa-square", "jsv-icon")
     i.title = "Approx. aspect ratio match"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -92,6 +108,10 @@
     i.classList.add("fa-solid", "fa-xmark", "jsv-icon")
     i.style.color = colors["yellow"][colorIndex]
     i.title = "File type match"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -100,6 +120,10 @@
     i.classList.add("fa-solid", "fa-xmark", "jsv-icon")
     i.style.color = colors["red"][colorIndex]
     i.title = "No matches"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -108,6 +132,10 @@
     i.classList.add("fa-solid", "fa-spinner", "fa-spin", "jsv-icon")
     i.style.color = "yellow"
     i.title = "Queued"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -116,6 +144,10 @@
     i.classList.add("fa", "fa-question", "jsv-icon")
     i.style.color = colors["yellow"][colorIndex]
     i.title = "Unknown"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -125,6 +157,10 @@
     i.style.color = colors["lime"][colorIndex]
     i.style.marginRight = "0.25rem"
     i.style.marginLeft = "0.25rem"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -133,6 +169,10 @@
     i.classList.add("fa", "fa-circle-info", "jsv-icon")
     i.style.color = "cyan"
     i.style.marginRight = "0.25rem"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -142,6 +182,10 @@
     i.style.color = "green"
     i.style.cursor = "pointer"
     i.title = "Get source data"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
     return i
   })();
 
@@ -253,6 +297,29 @@
         GM.xmlHttpRequest(req)
       })
     }
+  }
+
+  async function getDataBulk(ids) {
+    return new Promise((resolve, reject) => {
+      let req = {
+        method: "GET",
+        url: `https://search.yiff.today/checksource/bulk?ids=${ids.join(",")}`,
+        onload: function (response) {
+          try {
+            let data = JSON.parse(response.responseText)
+
+            resolve(data)
+          } catch (e) {
+            reject(e)
+          }
+        },
+        onerror: function (e) {
+          reject(e)
+        }
+      }
+
+      GM.xmlHttpRequest(req)
+    })
   }
 
   async function update(id) {
@@ -369,7 +436,6 @@
 
     for (let [source, sourceData] of Object.entries(data)) {
       let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.children[0].href) == source || e.children[0].href == source)
-      console.log(matchingSourceEntry)
 
       if (matchingSourceEntry) {
 
@@ -465,6 +531,109 @@
         }
       }
     }
+  }
+
+  function processDataOnPostView(data) {
+    let post = document.getElementById(`entry_${data.id}`)
+    let postInfo = post.querySelector("post-info")
+
+    if (data.queued) {
+      postInfo.appendChild(spinner.cloneNode())
+      return
+    } else if (data.unsupported) {
+      let noMatchesClone = noMatches.cloneNode()
+      noMatchesClone.title = "Unsupported"
+      postInfo.appendChild(noMatchesClone)
+      return
+    }
+
+    let flags = 0
+    let previewMatched = false
+
+    if (!data.sources) return
+
+    for (let [source, sourceData] of Object.entries(data.sources)) {
+      if (sourceData.md5Match) {
+        flags |= 1
+      } else if (sourceData.dimensionMatch && sourceData.fileTypeMatch) {
+        flags |= 2
+      } else if (sourceData.dimensionMatch) {
+        flags |= 4
+      } else if (sourceData.fileTypeMatch) {
+        flags |= 8
+      } else if (sourceData.unknown) {
+        flags |= 16
+      } else {
+        flags |= 32
+      }
+
+      if (sourceData.isPreview) {
+        previewMatched = true
+      }
+    }
+
+    if ((flags & 1) == 1) {
+      postInfo.appendChild(md5Match.cloneNode(true))
+    } else if ((flags & 2) == 2) {
+      postInfo.appendChild(dimensionAndFileTypeMatch.cloneNode(true))
+    } else if ((flags & 4) == 4) {
+      postInfo.appendChild(dimensionMatch.cloneNode(true))
+    } else if ((flags & 8) == 8) {
+      postInfo.appendChild(fileTypeMatch.cloneNode(true))
+    } else if ((flags & 16) == 16) {
+      postInfo.appendChild(unknown.cloneNode(true))
+    } else if ((flags & 32) == 32) {
+      postInfo.appendChild(noMatches.cloneNode(true))
+    }
+
+    if (previewMatched) {
+      let clone = bvas.cloneNode(true)
+      clone.title = `Matched version is preview image. Original version available.`
+      clone.style.color = colors["red"][colorIndex]
+      postInfo.appendChild(clone)
+    }
+  }
+
+  let timeOfMostRecentAddition = -1
+  let additions = []
+
+  let interval
+
+  function checkForNewPosts(mutationList, observer) {
+    for (const mutation of mutationList) {
+      if (mutation.type === "childList") {
+        for (let addedNode of mutation.addedNodes) {
+          if (addedNode.tagName == "IMG-RIBBONS") {
+            timeOfMostRecentAddition = Date.now()
+            if (addedNode.querySelector(".is-pending")) additions.push(mutation.target)
+            if (!interval && additions.length > 0) {
+              interval = setInterval(async () => {
+                if (Date.now() - timeOfMostRecentAddition > 500) {
+                  clearInterval(interval)
+                  interval = null
+
+                  let ids = additions.map(p => p.id.slice(6))
+
+                  additions = []
+                  
+                  let datas = await getDataBulk(ids)
+
+                  for (let data of datas) {
+                    processDataOnPostView(data)
+                  }
+                }
+              }, 300)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (window.location.pathname == "/posts") {
+    let observer = new MutationObserver(checkForNewPosts)
+    observer.observe(document.getElementById("content"), { attributes: true, childList: true, subtree: true })
+    return
   }
 
   let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
