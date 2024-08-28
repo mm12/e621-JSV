@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.22 
+// @version      0.23
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -605,7 +605,7 @@
         for (let addedNode of mutation.addedNodes) {
           if (addedNode.tagName == "IMG-RIBBONS") {
             timeOfMostRecentAddition = Date.now()
-            if (addedNode.querySelector(".is-pending")) additions.push(mutation.target)
+            additions.push(mutation.target)
             if (!interval && additions.length > 0) {
               interval = setInterval(async () => {
                 if (Date.now() - timeOfMostRecentAddition > 500) {
