@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.23
+// @version      0.24
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -498,33 +498,111 @@
             if (fileType == "jpg" && sourceData.fileType == "png") {
               let clone = bvas.cloneNode(true)
               clone.title = `Bigger dimensions, PNG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+
+              if (sourceData.originalUrl) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+                })
+              } else if (sourceData.url) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("Bigger dimensions, PNG")}`)
+                })
+              }
+
               matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
             } else if (fileType == "png" && sourceData.fileType == "jpg") {
               if (sourceData.dimensions.width >= width * 3 && sourceData.dimensions.height >= height * 3) {
                 let clone = bvas.cloneNode(true)
                 clone.title = `3x size, JPG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+
+                if (sourceData.originalUrl) {
+                  clone.style.cursor = "pointer"
+                  clone.addEventListener("click", () => {
+                    window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+                  })
+                } else if (sourceData.url) {
+                  clone.style.cursor = "pointer"
+                  clone.addEventListener("click", () => {
+                    window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("3x size, JPG")}`)
+                  })
+                }
+
                 matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
               } else if (sourceData.dimensions.width >= width * 2 && sourceData.dimensions.height >= height * 2) {
                 let clone = bvas.cloneNode(true)
                 clone.style.color = colors["yellow"][colorIndex]
                 clone.title = `2x size, JPG ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+
+                if (sourceData.originalUrl) {
+                  clone.style.cursor = "pointer"
+                  clone.addEventListener("click", () => {
+                    window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+                  })
+                } else if (sourceData.url) {
+                  clone.style.cursor = "pointer"
+                  clone.addEventListener("click", () => {
+                    window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("2x size, JPG")}`)
+                  })
+                }
+
                 matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
               }
             } else if (fileType == sourceData.fileType) {
               let clone = bvas.cloneNode(true)
               clone.title = `Bigger (${sourceData.fileType.toUpperCase()}) ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+
+              if (sourceData.originalUrl) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+                })
+              } else if (sourceData.url) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("Higher resolution")}`)
+                })
+              }
+
               matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
             }
           } else if (fileType == "jpg" && sourceData.fileType == "png") {
             if (width <= sourceData.dimensions.width * 1.5 && height <= sourceData.dimensions.height * 1.5) {
               let clone = bvas.cloneNode(true)
               clone.title = `PNG Version ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+
+              if (sourceData.originalUrl) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+                })
+              } else if (sourceData.url) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("PNG version")}`)
+                })
+              }
+
               matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
             }
           } else if (fileType == sourceData.fileType) {
             if (sourceData.dimensions.width > width || sourceData.dimensions.height > height) {
               let clone = bvas.cloneNode(true)
               clone.title = `Bigger (${sourceData.fileType.toUpperCase()}) ${sourceData.dimensions.width}x${sourceData.dimensions.height}`
+
+              if (sourceData.originalUrl) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}`)
+                })
+              } else if (sourceData.url) {
+                clone.style.cursor = "pointer"
+                clone.addEventListener("click", () => {
+                  window.open(`https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("Higher resolution")}`)
+                })
+              }
+
               matchingSourceEntry.insertBefore(clone, matchingSourceEntry.children[2])
             }
           }
@@ -615,7 +693,7 @@
                   let ids = additions.map(p => p.id.slice(6))
 
                   additions = []
-                  
+
                   let datas = await getDataBulk(ids)
 
                   for (let data of datas) {
