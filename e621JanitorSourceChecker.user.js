@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.24
+// @version      0.25
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
 // @match        https://e621.net/post_replacements/*
-// @updateURL    https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
-// @downloadURL  https://github.com/DontTalkToMeThx/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
+// @updateURL    https://github.com/Tarrgon/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
+// @downloadURL  https://github.com/Tarrgon/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=e621.net
 // @connect      search.yiff.today
 // @connect      static1.e621.net
@@ -24,21 +24,25 @@
   if (window.location.href.startsWith("https://e621.net/post_replacements/")) {
     let params = new URLSearchParams(window.location.search)
 
-    if (!params.has("url") || !params.has("reason")) return
-
     let urlField = document.getElementById("replacement-uploader").querySelector("input[type='text']")
     let noSourceBox = document.getElementById("no_source")
+    let sourceInput = document.querySelector(".upload-source-row > input")
     let reasonField = document.querySelector("[list='reason-datalist']")
 
-    urlField.value = params.get("url")
-    reasonField.value = params.get("reason")
+    if (params.has("url")) urlField.value = params.get("url")
+    if (params.has("reason")) reasonField.value = params.get("reason")
 
-    noSourceBox.checked = true
+    if (params.has("source")) {
+        sourceInput.value = params.get("source")
+    } else if (params.has("url")) {
+        noSourceBox.checked = true
+    }
 
     setTimeout(() => {
       urlField.dispatchEvent(new Event("input"))
       noSourceBox.dispatchEvent(new Event("change"))
       reasonField.dispatchEvent(new Event("input"))
+      sourceInput.dispatchEvent(new Event("input"))
     }, 100)
 
     return
