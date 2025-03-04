@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.25
+// @version      0.26
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -18,6 +18,23 @@
 // @run-at       document-end
 // ==/UserScript==
 
+function wait(ms) {
+  return new Promise(r => setTimeout(r, ms))
+}
+
+function waitForSelector(selector, timeout = 5000) {
+  return new Promise(async (resolve, reject) => {
+    let waited = 0
+    while (true) {
+      let ele = document.querySelector(selector)
+      if (ele) return resolve(ele)
+      await wait(100)
+      waited += 100
+      if (waited >= timeout) return reject()
+    }
+  })
+}
+
 (async function () {
   'use strict';
 
@@ -33,9 +50,9 @@
     if (params.has("reason")) reasonField.value = params.get("reason")
 
     if (params.has("source")) {
-        sourceInput.value = params.get("source")
+      sourceInput.value = params.get("source")
     } else if (params.has("url")) {
-        noSourceBox.checked = true
+      noSourceBox.checked = true
     }
 
     setTimeout(() => {
@@ -714,7 +731,7 @@
 
   if (window.location.pathname == "/posts") {
     let observer = new MutationObserver(checkForNewPosts)
-    observer.observe(document.getElementById("content"), { attributes: true, childList: true, subtree: true })
+    observer.observe(await waitForSelector("search-content"), { attributes: true, childList: true, subtree: true })
     return
   }
 
