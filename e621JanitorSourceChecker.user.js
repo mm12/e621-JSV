@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.27
+// @version      0.28
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -638,13 +638,20 @@ function waitForSelector(selector, timeout = 5000) {
     let post = document.getElementById(`entry_${data.id}`)
     let postInfo = post.querySelector("post-info")
 
+    let container = postInfo.querySelector('.jsv-container')
+    if (container) container.remove()
+
+    container = document.createElement('div')
+    container.classList.add('jsv-container')
+    postInfo.appendChild(container)
+
     if (data.queued) {
-      postInfo.appendChild(spinner.cloneNode())
+      container.appendChild(spinner.cloneNode())
       return
     } else if (data.unsupported) {
       let noMatchesClone = noMatches.cloneNode()
       noMatchesClone.title = "Unsupported"
-      postInfo.appendChild(noMatchesClone)
+      container.appendChild(noMatchesClone)
       return
     }
 
@@ -674,24 +681,24 @@ function waitForSelector(selector, timeout = 5000) {
     }
 
     if ((flags & 1) == 1) {
-      postInfo.appendChild(md5Match.cloneNode(true))
+      container.appendChild(md5Match.cloneNode(true))
     } else if ((flags & 2) == 2) {
-      postInfo.appendChild(dimensionAndFileTypeMatch.cloneNode(true))
+      container.appendChild(dimensionAndFileTypeMatch.cloneNode(true))
     } else if ((flags & 4) == 4) {
-      postInfo.appendChild(dimensionMatch.cloneNode(true))
+      container.appendChild(dimensionMatch.cloneNode(true))
     } else if ((flags & 8) == 8) {
-      postInfo.appendChild(fileTypeMatch.cloneNode(true))
+      container.appendChild(fileTypeMatch.cloneNode(true))
     } else if ((flags & 16) == 16) {
-      postInfo.appendChild(unknown.cloneNode(true))
+      container.appendChild(unknown.cloneNode(true))
     } else if ((flags & 32) == 32) {
-      postInfo.appendChild(noMatches.cloneNode(true))
+      container.appendChild(noMatches.cloneNode(true))
     }
 
     if (previewMatched) {
       let clone = bvas.cloneNode(true)
       clone.title = `Matched version is preview image. Original version available.`
       clone.style.color = colors["red"][colorIndex]
-      postInfo.appendChild(clone)
+      container.appendChild(clone)
     }
   }
 
