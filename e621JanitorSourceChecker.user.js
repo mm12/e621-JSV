@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.28
+// @version      0.29
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -643,15 +643,17 @@ function waitForSelector(selector, timeout = 5000) {
 
     container = document.createElement('div')
     container.classList.add('jsv-container')
-    postInfo.appendChild(container)
+    
 
     if (data.queued) {
       container.appendChild(spinner.cloneNode())
+      postInfo.appendChild(container)
       return
     } else if (data.unsupported) {
       let noMatchesClone = noMatches.cloneNode()
       noMatchesClone.title = "Unsupported"
       container.appendChild(noMatchesClone)
+      postInfo.appendChild(container)
       return
     }
 
@@ -680,6 +682,8 @@ function waitForSelector(selector, timeout = 5000) {
       }
     }
 
+    if (flags != 0) postInfo.appendChild(container)
+
     if ((flags & 1) == 1) {
       container.appendChild(md5Match.cloneNode(true))
     } else if ((flags & 2) == 2) {
@@ -699,6 +703,8 @@ function waitForSelector(selector, timeout = 5000) {
       clone.title = `Matched version is preview image. Original version available.`
       clone.style.color = colors["red"][colorIndex]
       container.appendChild(clone)
+
+      if (flags == 0) postInfo.appendChild(container)
     }
   }
 
