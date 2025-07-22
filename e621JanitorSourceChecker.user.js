@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.29
+// @version      0.30
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -276,12 +276,12 @@ function waitForSelector(selector, timeout = 5000) {
     return await getKemonoData(await getImageSHA256(document.getElementById("image-container").getAttribute("data-file-url")))
   }
 
-  async function getData(id, force = false) {
+  async function getData(id, force = false, updatePost = false) {
     if (!force) {
       return new Promise((resolve, reject) => {
         let req = {
           method: "GET",
-          url: `https://search.yiff.today/checksource/${id}`,
+          url: `https://search.yiff.today/checksource/${id}?forceupdate=${updatePost}`,
           onload: function (response) {
             try {
               let data = JSON.parse(response.responseText)
@@ -302,7 +302,7 @@ function waitForSelector(selector, timeout = 5000) {
       return new Promise((resolve, reject) => {
         let req = {
           method: "GET",
-          url: `https://search.yiff.today/checksource/${id}?checkapproved=true&waitfordata=true`,
+          url: `https://search.yiff.today/checksource/${id}?checkapproved=true&waitfordata=true&forceupdate=${updatePost}`,
           onload: function (response) {
             try {
               let data = JSON.parse(response.responseText)
@@ -345,11 +345,39 @@ function waitForSelector(selector, timeout = 5000) {
     })
   }
 
+  async function anyLinksSupported(links) {
+    return new Promise((resolve, reject) => {
+      let req = {
+        method: "POST",
+        url: `https://search.yiff.today/checksource/checksupported`,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        data: JSON.stringify(links),
+        onload: function (response) {
+          try {
+            let data = JSON.parse(response.responseText)
+            console.log(data)
+
+            resolve(data.supported)
+          } catch (e) {
+            reject(e)
+          }
+        },
+        onerror: function (e) {
+          reject(e)
+        }
+      }
+
+      GM.xmlHttpRequest(req)
+    })
+  }
+
   async function update(id) {
     return new Promise((resolve, reject) => {
       let req = {
         method: "GET",
-        url: `https://search.yiff.today/checksource/update/${id}?waitfordata=true`,
+        url: `https://search.yiff.today/checksource/update/${id}?waitfordata=true&forceupdate=true`,
         onload: function (response) {
           try {
             let data = JSON.parse(response.responseText)
@@ -402,22 +430,30 @@ function waitForSelector(selector, timeout = 5000) {
     return Math.floor(x * power) / power
   }
 
-  function processData(data) {
+  async function processData(data) {
+    console.log("data:")
+    console.log(data)
     let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
     let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
     if (data.notPending) {
-      let links = document.querySelector(".source-links")
-      let forceClone = force.cloneNode()
-      forceClone.addEventListener("click", async () => {
-        forceClone.remove()
+      if (data.supported) {
         let links = document.querySelector(".source-links")
-        let spinny = spinner.cloneNode()
-        links.insertBefore(spinny, links.firstElementChild)
-        let data = await getData(id, true)
-        spinny.remove()
-        processData(data)
-      })
-      links.insertBefore(forceClone, links.firstElementChild)
+        let forceClone = force.cloneNode()
+        forceClone.addEventListener("click", async () => {
+          for (let ele of document.querySelectorAll(".jsv-icon")) {
+            ele.remove()
+          }
+          forceClone.remove()
+          let links = document.querySelector(".source-links")
+          let spinny = spinner.cloneNode()
+          links.insertBefore(spinny, links.firstElementChild)
+          let data = await getData(id, true, true)
+          spinny.remove()
+          processData(data)
+        })
+        links.insertBefore(forceClone, links.firstElementChild)
+      }
+
       return
     }
 
@@ -427,6 +463,26 @@ function waitForSelector(selector, timeout = 5000) {
       return
     } else if (data.unsupported) {
       let links = document.querySelector(".source-links")
+
+      if (links.childElementCount > 0) {
+        if (await anyLinksSupported(Array.from(links.querySelectorAll("a")).map(a => a.href))) {
+          let forceClone = force.cloneNode()
+          forceClone.addEventListener("click", async () => {
+            for (let ele of document.querySelectorAll(".jsv-icon")) {
+              ele.remove()
+            }
+            forceClone.remove()
+            let links = document.querySelector(".source-links")
+            let spinny = spinner.cloneNode()
+            links.insertBefore(spinny, links.firstElementChild)
+            let data = await getData(id, true, true)
+            spinny.remove()
+            processData(data)
+          })
+          links.insertBefore(forceClone, links.firstElementChild)
+        }
+      }
+
       let noMatchesClone = noMatches.cloneNode()
       noMatchesClone.title = "Unsupported"
       links.insertBefore(noMatchesClone, links.firstElementChild)
@@ -643,7 +699,7 @@ function waitForSelector(selector, timeout = 5000) {
 
     container = document.createElement('div')
     container.classList.add('jsv-container')
-    
+
 
     if (data.queued) {
       container.appendChild(spinner.cloneNode())
