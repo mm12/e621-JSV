@@ -357,7 +357,6 @@ function waitForSelector(selector, timeout = 5000) {
         onload: function (response) {
           try {
             let data = JSON.parse(response.responseText)
-            console.log(data)
 
             resolve(data.supported)
           } catch (e) {
@@ -431,8 +430,6 @@ function waitForSelector(selector, timeout = 5000) {
   }
 
   async function processData(data) {
-    console.log("data:")
-    console.log(data)
     let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
     let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
     if (data.notPending) {
