@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.30
+// @version      0.31
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -429,6 +429,24 @@ function waitForSelector(selector, timeout = 5000) {
     return Math.floor(x * power) / power
   }
 
+  async function addKemonoData() {
+    let kemonoData = await getPostKemonoData()
+
+    if (kemonoData?.posts) {
+      let first = kemonoData.posts[0]
+      let links = document.querySelector(".source-links")
+      
+      let kemonoIconClone = kemonoIcon.cloneNode()
+      kemonoIconClone.style.cursor = "pointer"
+      kemonoIconClone.addEventListener("click", () => {
+        window.open(`https://kemono.su/${first.service}/user/${first.user}/post/${first.id}`)
+      })
+
+      links.insertBefore(kemonoIconClone, links.firstElementChild)
+      return
+    }
+  }
+
   async function processData(data) {
     let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
     let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
@@ -696,6 +714,7 @@ function waitForSelector(selector, timeout = 5000) {
 
     container = document.createElement('div')
     container.classList.add('jsv-container')
+    container.style['text-wrap'] = 'nowrap'
 
 
     if (data.queued) {
@@ -808,23 +827,10 @@ function waitForSelector(selector, timeout = 5000) {
   try {
     let data = await getData(id)
 
-    processData(data)
+    await processData(data)
 
     if (document.querySelectorAll(".source-link").length == 0) {
-      let kemonoData = await getPostKemonoData()
-
-      if (kemonoData?.posts) {
-        let first = kemonoData.posts[0]
-        let links = document.querySelector(".source-links")
-        let kemonoIconClone = kemonoIcon.cloneNode()
-        kemonoIconClone.style.cursor = "pointer"
-        kemonoIconClone.addEventListener("click", () => {
-          window.open(`https://kemono.su/${first.service}/user/${first.user}/post/${first.id}`)
-        })
-
-        links.insertBefore(kemonoIconClone, links.firstElementChild)
-        return
-      }
+      addKemonoData()
     }
 
   } catch (e) {
