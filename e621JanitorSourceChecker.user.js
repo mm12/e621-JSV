@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.31
+// @version      0.32
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -12,7 +12,7 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=e621.net
 // @connect      search.yiff.today
 // @connect      static1.e621.net
-// @connect      kemono.su
+// @connect      kemono.cr
 // @grant        GM.xmlHttpRequest
 // @grant        GM.setValue
 // @grant        GM.getValue
@@ -255,7 +255,10 @@ function waitForSelector(selector, timeout = 5000) {
     return new Promise((resolve, reject) => {
       let req = {
         method: "GET",
-        url: `https://kemono.su/api/v1/search_hash/${hash}`,
+        url: `https://kemono.cr/api/v1/search_hash/${hash}`,
+        headers: {
+          Accept: "text/css"
+        },
         onload: async function (response) {
           try {
             resolve(JSON.parse(response.responseText))
