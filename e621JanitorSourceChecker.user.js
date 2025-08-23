@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.32
+// @version      0.33
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -178,6 +178,20 @@ function waitForSelector(selector, timeout = 5000) {
     let i = document.createElement("i")
     i.classList.add("fa", "fa-plus", "jsv-icon")
     i.style.color = colors["lime"][colorIndex]
+    i.style.marginRight = "0.25rem"
+    i.style.marginLeft = "0.25rem"
+    if (window.location.pathname == "/posts") {
+      i.style.lineHeight = "inherit"
+      i.style.verticalAlign = "middle"
+    }
+    return i
+  })();
+
+  const phashMatch = (() => {
+    let i = document.createElement("i")
+    i.classList.add("fa", "fa-exclamation", "jsv-icon")
+    i.style.color = colors["lime"][colorIndex]
+    i.title = "Perceptually identical"
     i.style.marginRight = "0.25rem"
     i.style.marginLeft = "0.25rem"
     if (window.location.pathname == "/posts") {
@@ -438,7 +452,7 @@ function waitForSelector(selector, timeout = 5000) {
     if (kemonoData?.posts) {
       let first = kemonoData.posts[0]
       let links = document.querySelector(".source-links")
-      
+
       let kemonoIconClone = kemonoIcon.cloneNode()
       kemonoIconClone.style.cursor = "pointer"
       kemonoIconClone.addEventListener("click", () => {
@@ -549,6 +563,26 @@ function waitForSelector(selector, timeout = 5000) {
         } else {
           embeddedInfo.title = `UNK`
           matchingSourceEntry.prepend(embeddedInfo)
+        }
+
+
+        if (!sourceData.md5Match && sourceData.phashDistance !== undefined) {
+          let phashClone = phashMatch.cloneNode(true)
+
+          if (sourceData.phashDistance == 0) {
+            embeddedInfo.after(phashClone)
+          } else if (sourceData.phashDistance < 4) {
+            phashClone.style.color = colors["yellow"][colorIndex]
+            phashClone.title = "Perceptually similar"
+            embeddedInfo.after(phashClone)
+          } else {
+            phashClone.style.color = colors["red"][colorIndex]
+            phashClone.title = "Perceptually dissimilar"
+            embeddedInfo.after(phashClone)
+          }
+
+          let pd = 100 - (sourceData.phashDistance / 64 * 100)
+          phashClone.title += ` Similarity: ${Math.floor(pd.toFixed(2))}%`
         }
 
         if (sourceData.md5Match) {
@@ -737,6 +771,8 @@ function waitForSelector(selector, timeout = 5000) {
 
     if (!data.sources) return
 
+    let closestPerceptually = null
+
     for (let [source, sourceData] of Object.entries(data.sources)) {
       if (sourceData.md5Match) {
         flags |= 1
@@ -755,9 +791,13 @@ function waitForSelector(selector, timeout = 5000) {
       if (sourceData.isPreview) {
         previewMatched = true
       }
+
+      if (closestPerceptually == null || sourceData.phashDistance < closestPerceptually.phashDistance) {
+        closestPerceptually = sourceData
+      }
     }
 
-    if (flags != 0) postInfo.appendChild(container)
+    postInfo.appendChild(container)
 
     if ((flags & 1) == 1) {
       container.appendChild(md5Match.cloneNode(true))
@@ -771,6 +811,25 @@ function waitForSelector(selector, timeout = 5000) {
       container.appendChild(unknown.cloneNode(true))
     } else if ((flags & 32) == 32) {
       container.appendChild(noMatches.cloneNode(true))
+    }
+
+    if (!closestPerceptually.md5Match && closestPerceptually.phashDistance !== undefined) {
+      let phashClone = phashMatch.cloneNode(true)
+
+      if (closestPerceptually.phashDistance == 0) {
+        container.appendChild(phashClone)
+      } else if (closestPerceptually.phashDistance < 4) {
+        phashClone.style.color = colors["yellow"][colorIndex]
+        phashClone.title = "Perceptually similar"
+        container.appendChild(phashClone)
+      } else {
+        phashClone.style.color = colors["red"][colorIndex]
+        phashClone.title = "Perceptually dissimilar"
+        container.appendChild(phashClone)
+      }
+
+      let pd = 100 - (closestPerceptually.phashDistance / 64 * 100)
+      phashClone.title += ` Similarity: ${Math.floor(pd.toFixed(2))}%`
     }
 
     if (previewMatched) {
