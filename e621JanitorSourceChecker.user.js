@@ -571,7 +571,7 @@ function waitForSelector(selector, timeout = 5000) {
 
           if (sourceData.phashDistance == 0) {
             embeddedInfo.after(phashClone)
-          } else if (sourceData.phashDistance < 4) {
+          } else if (sourceData.phashDistance < 7) {
             phashClone.style.color = colors["yellow"][colorIndex]
             phashClone.title = "Perceptually similar"
             embeddedInfo.after(phashClone)
