@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.35
+// @version      0.36
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -468,7 +468,16 @@ function waitForSelector(selector, timeout = 5000) {
     let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
     let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
     if (data.notPending) {
-      if (data.supported) {
+      let links = document.querySelector(".source-links")
+      let linkHrefs = Array.from(links.querySelectorAll("a")).map(a => a.href)
+
+      let supported = data.supported
+
+      if (!supported && linkHrefs.length > 0) {
+        if (await anyLinksSupported(linkHrefs)) supported = true
+      }
+
+      if (supported) {
         let links = document.querySelector(".source-links")
         let forceClone = force.cloneNode()
         forceClone.addEventListener("click", async () => {
@@ -495,9 +504,10 @@ function waitForSelector(selector, timeout = 5000) {
       return
     } else if (data.unsupported) {
       let links = document.querySelector(".source-links")
+      let linkHrefs = Array.from(links.querySelectorAll("a")).map(a => a.href)
 
-      if (links.childElementCount > 0) {
-        if (await anyLinksSupported(Array.from(links.querySelectorAll("a")).map(a => a.href))) {
+      if (linkHrefs.length > 0) {
+        if (await anyLinksSupported(linkHrefs)) {
           let forceClone = force.cloneNode()
           forceClone.addEventListener("click", async () => {
             for (let ele of document.querySelectorAll(".jsv-icon")) {
