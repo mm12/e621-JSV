@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.36
+// @version      0.37
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -826,7 +826,7 @@ function waitForSelector(selector, timeout = 5000) {
 
       if (closestPerceptually.phashDistance == 0) {
         container.appendChild(phashClone)
-      } else if (closestPerceptually.phashDistance < 4) {
+      } else if (closestPerceptually.phashDistance < 7) {
         phashClone.style.color = colors["yellow"][colorIndex]
         phashClone.title = "Perceptually similar"
         container.appendChild(phashClone)
