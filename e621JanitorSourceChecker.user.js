@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.37
+// @version      0.38
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -194,6 +194,11 @@ function waitForSelector(selector, timeout = 5000) {
     i.title = "Perceptually identical"
     i.style.marginRight = "0.25rem"
     i.style.marginLeft = "0.25rem"
+    i.style.width = "10px"
+    i.style.display = "inline-block"
+    i.style.textAlign = "center"
+    // i.style.outline = "1px solid"
+    // i.style.outlineColor = "lime"
     if (window.location.pathname == "/posts") {
       i.style.lineHeight = "inherit"
       i.style.verticalAlign = "middle"
@@ -583,10 +588,12 @@ function waitForSelector(selector, timeout = 5000) {
             embeddedInfo.after(phashClone)
           } else if (sourceData.phashDistance < 7) {
             phashClone.style.color = colors["yellow"][colorIndex]
+            // phashClone.style.outlineColor = colors["yellow"][colorIndex]
             phashClone.title = "Perceptually similar"
             embeddedInfo.after(phashClone)
           } else {
             phashClone.style.color = colors["red"][colorIndex]
+            // phashClone.style.outlineColor = colors["red"][colorIndex]
             phashClone.title = "Perceptually dissimilar"
             embeddedInfo.after(phashClone)
           }
@@ -828,10 +835,12 @@ function waitForSelector(selector, timeout = 5000) {
         container.appendChild(phashClone)
       } else if (closestPerceptually.phashDistance < 7) {
         phashClone.style.color = colors["yellow"][colorIndex]
+        // phashClone.style.outlineColor = colors["yellow"][colorIndex]
         phashClone.title = "Perceptually similar"
         container.appendChild(phashClone)
       } else {
         phashClone.style.color = colors["red"][colorIndex]
+        // phashClone.style.outlineColor = colors["red"][colorIndex]
         phashClone.title = "Perceptually dissimilar"
         container.appendChild(phashClone)
       }
