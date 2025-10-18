@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.38
+// @version      0.39
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -13,6 +13,7 @@
 // @connect      search.yiff.today
 // @connect      static1.e621.net
 // @connect      kemono.cr
+// @connect      public.api.bsky.app
 // @grant        GM.xmlHttpRequest
 // @grant        GM.setValue
 // @grant        GM.getValue
@@ -469,6 +470,50 @@ function waitForSelector(selector, timeout = 5000) {
     }
   }
 
+  async function getBlueskyDid(handle) {
+    try {
+      let data = await new Promise((resolve, reject) => {
+        let req = {
+          method: "GET",
+          url: `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${handle}`,
+          onload: function (response) {
+            try {
+              let data = JSON.parse(response.responseText)
+
+              resolve(data)
+            } catch (e) {
+              reject(e)
+            }
+          },
+          onerror: function (e) {
+            reject(e)
+          }
+        }
+
+        GM.xmlHttpRequest(req)
+      })
+
+      return data.did
+    } catch (e) {
+      console.error(e)
+    }
+
+    return null
+  }
+
+  async function getReplacementUrl(id, sourceData, source, reason) {
+    let regexData = null
+    if ((regexData = /https:\/\/bsky\.app\/profile\/(.*)\/post/.exec(source)) != null) {
+      if (!regexData[1].startsWith("did:plc:")) {
+        let did = await getBlueskyDid(regexData[1])
+
+        if (did) source = source.replace(regexData[1], did)
+      }
+    }
+
+    return `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent(reason)}&source=${encodeURIComponent(source)}`
+  }
+
   async function processData(data) {
     let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
     let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
@@ -639,8 +684,9 @@ function waitForSelector(selector, timeout = 5000) {
           a.setAttribute("data-replacement-url", sourceData.originalUrl ? sourceData.originalUrl : sourceData.url)
           a.appendChild(clone)
 
-          if (sourceData.originalUrl)
-            a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}&source=${encodeURIComponent(source)}`
+          if (sourceData.originalUrl) {
+            a.href = await getReplacementUrl(id, sourceData, source, "Original version")
+          }
 
           matchingSourceEntry.insertBefore(a, matchingSourceEntry.children[2])
         }
@@ -658,9 +704,9 @@ function waitForSelector(selector, timeout = 5000) {
               a.appendChild(clone)
 
               if (sourceData.originalUrl)
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "Original version")
               else
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("Bigger dimensions, PNG")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "Bigger dimensions, PNG")
 
               matchingSourceEntry.insertBefore(a, matchingSourceEntry.children[2])
             } else if (fileType == "png" && sourceData.fileType == "jpg") {
@@ -675,9 +721,9 @@ function waitForSelector(selector, timeout = 5000) {
                 a.appendChild(clone)
 
                 if (sourceData.originalUrl)
-                  a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}&source=${encodeURIComponent(source)}`
+                  a.href = await getReplacementUrl(id, sourceData, source, "Original version")
                 else
-                  a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("3x size, JPG")}&source=${encodeURIComponent(source)}`
+                  a.href = await getReplacementUrl(id, sourceData, source, "3x size, JPG")
 
                 matchingSourceEntry.insertBefore(a, matchingSourceEntry.children[2])
               } else if (sourceData.dimensions.width >= width * 2 && sourceData.dimensions.height >= height * 2) {
@@ -692,9 +738,9 @@ function waitForSelector(selector, timeout = 5000) {
                 a.appendChild(clone)
 
                 if (sourceData.originalUrl)
-                  a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}&source=${encodeURIComponent(source)}`
+                  a.href = await getReplacementUrl(id, sourceData, source, "Original version")
                 else
-                  a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("2x size, JPG")}&source=${encodeURIComponent(source)}`
+                  a.href = await getReplacementUrl(id, sourceData, source, "2x size, JPG")
 
                 matchingSourceEntry.insertBefore(a, matchingSourceEntry.children[2])
               }
@@ -709,9 +755,9 @@ function waitForSelector(selector, timeout = 5000) {
               a.appendChild(clone)
 
               if (sourceData.originalUrl)
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "Original version")
               else
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("Higher resolution")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "Higher resolution")
 
               matchingSourceEntry.insertBefore(a, matchingSourceEntry.children[2])
             }
@@ -727,9 +773,9 @@ function waitForSelector(selector, timeout = 5000) {
               a.appendChild(clone)
 
               if (sourceData.originalUrl)
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "Original version")
               else
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("PNG version")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "PNG version")
 
               matchingSourceEntry.insertBefore(a, matchingSourceEntry.children[2])
             }
@@ -745,9 +791,9 @@ function waitForSelector(selector, timeout = 5000) {
               a.appendChild(clone)
 
               if (sourceData.originalUrl)
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent("Original version")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "Original version")
               else
-                a.href = `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.url)}&reason=${encodeURIComponent("Higher resolution")}&source=${encodeURIComponent(source)}`
+                a.href = await getReplacementUrl(id, sourceData, source, "Higher resolution")
 
               matchingSourceEntry.insertBefore(a, matchingSourceEntry.children[2])
             }
