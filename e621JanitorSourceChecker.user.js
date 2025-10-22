@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.39
+// @version      0.40
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -515,8 +515,7 @@ function waitForSelector(selector, timeout = 5000) {
   }
 
   async function processData(data) {
-    let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
-    let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
+    let id = document.querySelector("#image-container[data-id]").getAttribute("data-id")
     if (data.notPending) {
       let links = document.querySelector(".source-links")
       let linkHrefs = Array.from(links.querySelectorAll("a")).map(a => a.href)
@@ -601,12 +600,13 @@ function waitForSelector(selector, timeout = 5000) {
 
     let width = parseInt(document.querySelector("span[itemprop='width']").innerText)
     let height = parseInt(document.querySelector("span[itemprop='height']").innerText)
-    let fileType = allLi.find(e => e.innerText.trim().startsWith("Type:")).innerText.trim().slice(6).toLowerCase()
+    let fileType = document.querySelector("[data-file-ext]").getAttribute("data-file-ext")
 
     let approxAspectRatio = approximateAspectRatio(width / height, 50)
 
     for (let [source, sourceData] of Object.entries(data)) {
       let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.children[0].href) == source || e.children[0].href == source)
+      console.log(matchingSourceEntry)
 
       if (matchingSourceEntry) {
 
@@ -947,8 +947,7 @@ function waitForSelector(selector, timeout = 5000) {
     return
   }
 
-  let allLi = Array.from(document.getElementById("post-information").querySelectorAll("li"))
-  let id = allLi.find(e => e.innerText.startsWith("ID:")).innerText.slice(4)
+  let id = document.querySelector("#image-container[data-id]").getAttribute("data-id")
   try {
     let data = await getData(id)
 
