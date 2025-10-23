@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.41
+// @version      0.42
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -10,6 +10,7 @@
 // @updateURL    https://github.com/Tarrgon/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
 // @downloadURL  https://github.com/Tarrgon/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=e621.net
+// @connect      api.fluffle.xyz
 // @connect      search.yiff.today
 // @connect      static1.e621.net
 // @connect      kemono.cr
@@ -21,9 +22,40 @@
 // @run-at       document-end
 // ==/UserScript==
 
-function wait(ms) {
-  return new Promise(r => setTimeout(r, ms))
+const RELOAD_AFTER_UPDATE = true;
+
+document.head.append(Object.assign(document.createElement("style"), {
+  type: "text/css",
+  textContent: `
+.loading:after {
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: bottom;
+  -webkit-animation: ellipsis steps(4, end) 900ms infinite;
+  animation: ellipsis steps(4, end) 900ms infinite;
+  content: "\\2026";
+  width: 0px;
 }
+
+@keyframes ellipsis {
+  to {
+    width: 16px;
+  }
+}
+
+@-webkit-keyframes ellipsis {
+  to {
+    width: 16px;
+  }
+}`
+}));
+
+let sourcesToAdd = [];
+let timeout;
+
+const getCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
 function waitForSelector(selector, timeout = 5000) {
   return new Promise(async (resolve) => {
@@ -36,6 +68,169 @@ function waitForSelector(selector, timeout = 5000) {
       if (waited >= timeout) return resolve(null)
     }
   })
+}
+
+function getImageBlob(fileUrl) {
+  return new Promise((resolve, reject) => {
+    try {
+      const container = document.getElementById('image-container');
+      const image = new Image()
+
+      const width = Number(container.getAttribute('data-width'));
+      const height = Number(container.getAttribute('data-height'));
+      const ratio = width < height ? 256 / width : 256 / height;
+      const calculatedWidth = Math.floor(width * ratio);
+      const calculatedHeight = Math.floor(height * ratio);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = calculatedWidth;
+      canvas.height = calculatedHeight;
+
+
+      image.onload = () => {
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(image, 0, 0, calculatedWidth, calculatedHeight);
+        canvas.toBlob(resolve, 'image/png');
+      };
+
+      image.crossOrigin = '';
+      image.src = fileUrl;
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+function getFluffleData(blob) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('limit', '32');
+    formData.append('file', blob, 'image.png');
+
+    GM.xmlHttpRequest({
+      method: 'POST',
+      url: `https://api.fluffle.xyz/exact-search-by-file`,
+      headers: {
+        'User-Agent': "Fluffle621/main (by 'tarrgon.' on Discord)",
+        'Accept': 'application/json'
+      },
+      onload: function (response) {
+        try {
+          resolve(JSON.parse(response.responseText));
+        } catch (e) {
+          reject(e);
+        }
+      },
+      onerror: function (e) {
+        reject(e);
+      },
+      data: formData,
+      fetch: true
+    })
+  })
+}
+
+const messages = [
+  'None',
+  'Empty',
+  'Devoid',
+  'Blank',
+  'Dry'
+];
+
+const faces = [
+  ':(',
+  'D:',
+  '˙◠˙',
+  '૮(˶ㅠ︿ㅠ)ა',
+  '(╥‸╥)',
+  '(˚ ˃̣̣̥⌓˂̣̣̥ )',
+  '(ó﹏ò｡)',
+  '(ᗒᗣᗕ)՞'
+];
+
+function getRandomEmptyResultMessage() {
+  return `${messages[Math.floor(Math.random() * messages.length)]} ${faces[Math.floor(Math.random() * faces.length)]}`
+}
+
+async function updatePostInVerifier() {
+  const container = document.getElementById('image-container');
+  const id = container.getAttribute('data-id');
+
+  return new Promise((resolve, reject) => {
+    GM.xmlHttpRequest({
+      method: "GET",
+      url: `https://search.yiff.today/checksource/${id}?checkapproved=true&waitfordata=true&forceupdate=true`,
+      onload: function () {
+        resolve();
+      },
+      onerror: function (e) {
+        reject(e);
+      }
+    });
+  });
+}
+
+async function sendSources() {
+  timeout = null;
+
+  try {
+    const container = document.getElementById('image-container');
+    const id = container.getAttribute('data-id');
+
+    const res = await fetch(`https://e621.net/posts/${id}.json`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': getCsrfToken()
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        post: {
+          source_diff: sourcesToAdd.join('\n')
+        }
+      })
+    });
+
+    sourcesToAdd = [];
+
+    if (res.ok) {
+      Danbooru.notice('Successfully added sources.');
+
+      await updatePostInVerifier();
+      if (RELOAD_AFTER_UPDATE) {
+        await wait(100);
+        window.location.reload();
+      }
+    } else {
+      console.error(await res.text());
+      Danbooru.error('Error setting source. Check console.');
+    }
+  } catch (e) {
+    console.error(e);
+    Danbooru.error('Error setting source. Check console.');
+  }
+}
+
+function addSource(result, immediate, event) {
+  event.stopImmediatePropagation();
+  event.preventDefault();
+
+  if (sourcesToAdd.includes(result.url)) return;
+
+  sourcesToAdd.push(result.url);
+  if (immediate) {
+    sendSources();
+    return;
+  }
+
+  if (!timeout) {
+    timeout = setTimeout(sendSources, 350);
+  } else {
+    clearTimeout(timeout);
+    timeout = setTimeout(sendSources, 350);
+  }
 }
 
 (async function () {
@@ -79,6 +274,16 @@ function waitForSelector(selector, timeout = 5000) {
   }
 
   let colorIndex = await GM.getValue("colorBlindMode", "false") == "false" ? 0 : 1
+
+  const addSourceSign = (() => {
+    let i = document.createElement("i")
+    i.classList.add("fa", "fa-plus")
+    i.style.color = colors["lime"][colorIndex]
+    i.title = "Add source"
+    i.style.marginRight = "0.25rem"
+    i.style.marginLeft = "0.25rem"
+    return i
+  })();
 
   const md5Match = (() => {
     let i = document.createElement("i")
@@ -247,6 +452,106 @@ function waitForSelector(selector, timeout = 5000) {
     img.title = "Found kemono match"
     return img
   })();
+
+  function createSource(result, immediate) {
+    const div = document.createElement('div')
+    div.classList.add('source-link', 'fluffle621-source-link');
+
+    const wrappedAnchor = document.createElement('a');
+
+    wrappedAnchor.onclick = addSource.bind(null, result, immediate);
+
+    wrappedAnchor.title = 'Add source';
+    wrappedAnchor.appendChild(addSourceSign.cloneNode(true));
+    div.appendChild(wrappedAnchor);
+
+    const a = document.createElement('a');
+    a.classList.add('decorated', 'fluffle621-source');
+    a.target = '_blank';
+    a.rel = 'nofollow noreferrer noopener';
+    a.href = result.url;
+    a.innerText = result.url;
+
+    div.appendChild(a);
+
+    return div;
+  }
+
+  function addResults(results) {
+    const existingList = document.querySelector('.post-sidebar-info');
+
+    document.getElementById('fluffle-results')?.remove();
+
+    const list = document.createElement('ul');
+    list.id = 'fluffle-results'
+    list.setAttribute('data-loaded', 'true');
+    list.classList.add('post-sidebar-info');
+
+    const listItem = document.createElement('li');
+    listItem.classList.add('source-links');
+    listItem.append('Fluffle Sources:');
+
+    if (results.length == 0) {
+      listItem.appendChild(document.createElement('br'));
+      listItem.append(getRandomEmptyResultMessage());
+    } else {
+      for (const result of results) {
+        listItem.append(createSource(result, results.length == 1));
+      }
+    }
+
+    list.appendChild(listItem);
+
+    existingList.after(list);
+  }
+
+  function createTemporaryList() {
+    const existingList = document.querySelector('.post-sidebar-info');
+
+    const list = document.createElement('ul');
+    list.id = 'fluffle-results'
+    list.setAttribute('data-loaded', 'false');
+    list.classList.add('post-sidebar-info');
+
+    const listItem = document.createElement('li');
+    listItem.classList.add('source-links');
+    listItem.append('Fluffle Sources:');
+
+    listItem.appendChild(document.createElement('br'));
+
+    const loading = document.createElement('div');
+    loading.innerText = 'Loading'
+    loading.classList.add('loading')
+    listItem.appendChild(loading);
+
+    list.appendChild(listItem);
+
+    existingList.after(list);
+  }
+
+  async function checkFluffle() {
+    const container = document.getElementById('image-container');
+    const fileType = container.getAttribute('data-file-ext');
+
+    if (fileType == 'webm' || fileType == 'mp4') return;
+
+    createTemporaryList();
+
+    const fileUrl = container.getAttribute('data-file-url');
+    const imageBlob = await getImageBlob(fileUrl);
+
+    const fluffleData = await getFluffleData(imageBlob);
+    const fluffleResults = fluffleData.results.filter(r => r.match == 'exact' && r.platform != 'e621');
+
+    addResults(fluffleResults);
+
+    const links = fluffleResults.map(a => a.url);
+
+    if (await anyLinksSupported(links)) {
+      const data = await checkFluffleLinks(id, links);
+      await processData(data, false, "#fluffle-results .source-links");
+    }
+  }
 
   async function getImageSHA256(url) {
     return new Promise((resolve, reject) => {
@@ -968,20 +1273,6 @@ function waitForSelector(selector, timeout = 5000) {
       }
     }
   }
-
-  async function watchForFluffle(id) {
-    let fluffleResults = await waitForSelector("#fluffle-results[data-loaded='true']", 10000)
-
-    if (!fluffleResults) return
-
-    let links = Array.from(fluffleResults.querySelectorAll('.fluffle621-source')).map(a => a.href)
-
-    if (await anyLinksSupported(links)) {
-      let data = await checkFluffleLinks(id, links)
-      await processData(data, false, "#fluffle-results .source-links")
-    }
-  }
-
   if (window.location.pathname == "/posts") {
     let observer = new MutationObserver(checkForNewPosts)
     observer.observe(await waitForSelector("search-content"), { attributes: true, childList: true, subtree: true })
@@ -998,7 +1289,7 @@ function waitForSelector(selector, timeout = 5000) {
 
     if (!anyLinks) {
       addKemonoData()
-      watchForFluffle(id)
+      checkFluffle();
     }
 
   } catch (e) {
