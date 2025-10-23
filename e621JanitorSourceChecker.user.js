@@ -188,7 +188,8 @@ async function sendSources() {
       credentials: 'same-origin',
       body: JSON.stringify({
         post: {
-          source_diff: sourcesToAdd.join('\n')
+          source_diff: sourcesToAdd.join('\n'),
+          edit_reason: 'FluffleSource'
         }
       })
     });
