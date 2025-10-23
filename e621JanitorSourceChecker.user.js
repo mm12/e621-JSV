@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.40
+// @version      0.41
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -26,14 +26,14 @@ function wait(ms) {
 }
 
 function waitForSelector(selector, timeout = 5000) {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     let waited = 0
     while (true) {
       let ele = document.querySelector(selector)
       if (ele) return resolve(ele)
       await wait(100)
       waited += 100
-      if (waited >= timeout) return reject()
+      if (waited >= timeout) return resolve(null)
     }
   })
 }
@@ -395,6 +395,32 @@ function waitForSelector(selector, timeout = 5000) {
     })
   }
 
+  async function checkFluffleLinks(id, links) {
+    return new Promise((resolve, reject) => {
+      let req = {
+        method: "POST",
+        url: `https://search.yiff.today/checksource/checkextra/${id}`,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        data: JSON.stringify(links),
+        onload: function (response) {
+          try {
+            resolve(JSON.parse(response.responseText))
+          } catch (e) {
+            console.error(response.responseText)
+            reject(e)
+          }
+        },
+        onerror: function (e) {
+          reject(e)
+        }
+      }
+
+      GM.xmlHttpRequest(req)
+    })
+  }
+
   async function update(id) {
     return new Promise((resolve, reject) => {
       let req = {
@@ -514,10 +540,10 @@ function waitForSelector(selector, timeout = 5000) {
     return `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent(reason)}&source=${encodeURIComponent(source)}`
   }
 
-  async function processData(data) {
+  async function processData(data, refreshable = true, containerSelector = ".source-links") {
     let id = document.querySelector("#image-container[data-id]").getAttribute("data-id")
-    if (data.notPending) {
-      let links = document.querySelector(".source-links")
+    if (data.notPending && refreshable) {
+      let links = document.querySelector(containerSelector)
       let linkHrefs = Array.from(links.querySelectorAll("a")).map(a => a.href)
 
       let supported = data.supported
@@ -527,14 +553,14 @@ function waitForSelector(selector, timeout = 5000) {
       }
 
       if (supported) {
-        let links = document.querySelector(".source-links")
+        let links = document.querySelector(containerSelector)
         let forceClone = force.cloneNode()
         forceClone.addEventListener("click", async () => {
           for (let ele of document.querySelectorAll(".jsv-icon")) {
             ele.remove()
           }
           forceClone.remove()
-          let links = document.querySelector(".source-links")
+          let links = document.querySelector(containerSelector)
           let spinny = spinner.cloneNode()
           links.insertBefore(spinny, links.firstElementChild)
           let data = await getData(id, true, true)
@@ -547,12 +573,12 @@ function waitForSelector(selector, timeout = 5000) {
       return
     }
 
-    if (data.queued) {
-      let links = document.querySelector(".source-links")
+    if (data.queued && refreshable) {
+      let links = document.querySelector(containerSelector)
       links.insertBefore(spinner.cloneNode(), links.firstElementChild)
       return
-    } else if (data.unsupported) {
-      let links = document.querySelector(".source-links")
+    } else if (data.unsupported && refreshable) {
+      let links = document.querySelector(containerSelector)
       let linkHrefs = Array.from(links.querySelectorAll("a")).map(a => a.href)
 
       if (linkHrefs.length > 0) {
@@ -563,7 +589,7 @@ function waitForSelector(selector, timeout = 5000) {
               ele.remove()
             }
             forceClone.remove()
-            let links = document.querySelector(".source-links")
+            let links = document.querySelector(containerSelector)
             let spinny = spinner.cloneNode()
             links.insertBefore(spinny, links.firstElementChild)
             let data = await getData(id, true, true)
@@ -580,23 +606,26 @@ function waitForSelector(selector, timeout = 5000) {
       return
     }
 
-    let links = document.querySelector(".source-links")
-    let reloadClone = reload.cloneNode()
-    reloadClone.addEventListener("click", async () => {
-      for (let ele of document.querySelectorAll(".jsv-icon")) {
-        ele.remove()
-      }
-      reloadClone.remove()
-      let links = document.querySelector(".source-links")
-      let spinny = spinner.cloneNode()
-      links.insertBefore(spinny, links.firstElementChild)
-      let data = await update(id)
-      spinny.remove()
-      processData(data)
-    })
-    links.insertBefore(reloadClone, links.firstElementChild)
+    let links = document.querySelector(containerSelector)
 
-    let allSourceLinks = Array.from(document.getElementById("post-information").querySelectorAll(".source-link"))
+    if (refreshable) {
+      let reloadClone = reload.cloneNode()
+      reloadClone.addEventListener("click", async () => {
+        for (let ele of document.querySelectorAll(".jsv-icon")) {
+          ele.remove()
+        }
+        reloadClone.remove()
+        let links = document.querySelector(containerSelector)
+        let spinny = spinner.cloneNode()
+        links.insertBefore(spinny, links.firstElementChild)
+        let data = await update(id)
+        spinny.remove()
+        processData(data)
+      })
+      links.insertBefore(reloadClone, links.firstElementChild)
+    }
+
+    let allSourceLinks = Array.from(document.querySelector(containerSelector).querySelectorAll(".source-link > a[href]"))
 
     let width = parseInt(document.querySelector("span[itemprop='width']").innerText)
     let height = parseInt(document.querySelector("span[itemprop='height']").innerText)
@@ -605,8 +634,7 @@ function waitForSelector(selector, timeout = 5000) {
     let approxAspectRatio = approximateAspectRatio(width / height, 50)
 
     for (let [source, sourceData] of Object.entries(data)) {
-      let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.children[0].href) == source || e.children[0].href == source)
-      console.log(matchingSourceEntry)
+      let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.href) == source || e.href == source)
 
       if (matchingSourceEntry) {
 
@@ -941,6 +969,19 @@ function waitForSelector(selector, timeout = 5000) {
     }
   }
 
+  async function watchForFluffle(id) {
+    let fluffleResults = await waitForSelector("#fluffle-results[data-loaded='true']", 10000)
+
+    if (!fluffleResults) return
+
+    let links = Array.from(fluffleResults.querySelectorAll('.fluffle621-source')).map(a => a.href)
+
+    if (await anyLinksSupported(links)) {
+      let data = await checkFluffleLinks(id, links)
+      await processData(data, false, "#fluffle-results .source-links")
+    }
+  }
+
   if (window.location.pathname == "/posts") {
     let observer = new MutationObserver(checkForNewPosts)
     observer.observe(await waitForSelector("search-content"), { attributes: true, childList: true, subtree: true })
@@ -951,10 +992,13 @@ function waitForSelector(selector, timeout = 5000) {
   try {
     let data = await getData(id)
 
-    await processData(data)
+    let anyLinks = document.querySelectorAll(".source-link").length > 0
 
-    if (document.querySelectorAll(".source-link").length == 0) {
+    await processData(data, anyLinks)
+
+    if (!anyLinks) {
       addKemonoData()
+      watchForFluffle(id)
     }
 
   } catch (e) {
