@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.42
+// @version      0.43
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -161,7 +161,7 @@ async function updatePostInVerifier() {
   return new Promise((resolve, reject) => {
     GM.xmlHttpRequest({
       method: "GET",
-      url: `https://search.yiff.today/checksource/${id}?checkapproved=true&waitfordata=true&forceupdate=true`,
+      url: `https://search.yiff.today/checksource/${id}?checkapproved=true&forceupdate=true`,
       onload: function () {
         resolve();
       },
@@ -200,7 +200,7 @@ async function sendSources() {
 
       await updatePostInVerifier();
       if (RELOAD_AFTER_UPDATE) {
-        await wait(100);
+        await wait(50);
         window.location.reload();
       }
     } else {
@@ -875,13 +875,13 @@ function addSource(result, immediate, event) {
         links.insertBefore(forceClone, links.firstElementChild)
       }
 
-      return
+      return supported
     }
 
     if (data.queued && refreshable) {
       let links = document.querySelector(containerSelector)
       links.insertBefore(spinner.cloneNode(), links.firstElementChild)
-      return
+      return true
     } else if (data.unsupported && refreshable) {
       let links = document.querySelector(containerSelector)
       let linkHrefs = Array.from(links.querySelectorAll("a")).map(a => a.href)
@@ -908,7 +908,7 @@ function addSource(result, immediate, event) {
       let noMatchesClone = noMatches.cloneNode()
       noMatchesClone.title = "Unsupported"
       links.insertBefore(noMatchesClone, links.firstElementChild)
-      return
+      return true
     }
 
     let links = document.querySelector(containerSelector)
@@ -1134,6 +1134,8 @@ function addSource(result, immediate, event) {
         }
       }
     }
+
+    return true
   }
 
   function processDataOnPostView(data) {
@@ -1283,13 +1285,15 @@ function addSource(result, immediate, event) {
   try {
     let data = await getData(id)
 
-    let anyLinks = document.querySelectorAll(".source-link").length > 0
+    let links = Array.from(document.querySelectorAll(".source-link")).map(a => a.href)
 
-    await processData(data, anyLinks)
+    let supported = await processData(data, links.length > 0)
 
-    if (!anyLinks) {
+    if (links.length == 0) {
       addKemonoData()
       checkFluffle();
+    } else if (!supported) {
+      checkFluffle()
     }
 
   } catch (e) {
