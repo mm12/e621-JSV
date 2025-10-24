@@ -24,6 +24,8 @@
 
 const RELOAD_AFTER_UPDATE = true;
 
+let RETRY_COUNT = 0;
+
 document.head.append(Object.assign(document.createElement("style"), {
   type: "text/css",
   textContent: `
@@ -883,7 +885,10 @@ function addSource(result, immediate, event) {
       let links = document.querySelector(containerSelector)
       links.insertBefore(spinner.cloneNode(), links.firstElementChild)
 
+      if (RETRY_COUNT >= 5) return true;
+      
       getData(id, true, true).then(data => {
+        RETRY_COUNT++
         for (let ele of document.querySelectorAll(".jsv-icon")) {
           ele.remove()
         }
