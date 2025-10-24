@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.44
+// @version      0.46
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -23,6 +23,8 @@
 // ==/UserScript==
 
 const RELOAD_AFTER_UPDATE = true;
+
+let RETRY_COUNT = 0;
 
 document.head.append(Object.assign(document.createElement("style"), {
   type: "text/css",
@@ -227,10 +229,10 @@ function addSource(result, immediate, event) {
   }
 
   if (!timeout) {
-    timeout = setTimeout(sendSources, 350);
+    timeout = setTimeout(sendSources, 500);
   } else {
     clearTimeout(timeout);
-    timeout = setTimeout(sendSources, 350);
+    timeout = setTimeout(sendSources, 500);
   }
 }
 
@@ -847,6 +849,8 @@ function addSource(result, immediate, event) {
   }
 
   async function processData(data, refreshable = true, containerSelector = ".source-links") {
+    if (data.unsupported) return false
+
     let id = document.querySelector("#image-container[data-id]").getAttribute("data-id")
     if (data.notPending && refreshable) {
       let links = document.querySelector(containerSelector)
@@ -882,6 +886,18 @@ function addSource(result, immediate, event) {
     if (data.queued && refreshable) {
       let links = document.querySelector(containerSelector)
       links.insertBefore(spinner.cloneNode(), links.firstElementChild)
+
+      if (RETRY_COUNT >= 5) return true;
+
+      getData(id, true, true).then(data => {
+        RETRY_COUNT++
+        for (let ele of document.querySelectorAll(".jsv-icon")) {
+          ele.remove()
+        }
+
+        processData(data)
+      })
+
       return true
     } else if (data.unsupported && refreshable) {
       let links = document.querySelector(containerSelector)
