@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.46
+// @version      0.47
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -551,7 +551,14 @@ function addSource(result, immediate, event) {
     const links = fluffleResults.map(a => a.url);
 
     if (await anyLinksSupported(links)) {
+      let linkElement = document.querySelector("#fluffle-results .source-links")
+      let spinny = spinner.cloneNode()
+      linkElement.insertBefore(spinny, linkElement.firstElementChild)
+
       const data = await checkFluffleLinks(id, links);
+
+      spinny.remove()
+
       await processData(data, false, "#fluffle-results .source-links");
     }
   }
@@ -640,6 +647,7 @@ function addSource(result, immediate, event) {
 
               resolve(data)
             } catch (e) {
+              console.error(response.responseText)
               reject(e)
             }
           },
