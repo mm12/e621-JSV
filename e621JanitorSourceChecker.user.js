@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.45
+// @version      0.46
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -849,6 +849,8 @@ function addSource(result, immediate, event) {
   }
 
   async function processData(data, refreshable = true, containerSelector = ".source-links") {
+    if (data.unsupported) return false
+
     let id = document.querySelector("#image-container[data-id]").getAttribute("data-id")
     if (data.notPending && refreshable) {
       let links = document.querySelector(containerSelector)
@@ -886,7 +888,7 @@ function addSource(result, immediate, event) {
       links.insertBefore(spinner.cloneNode(), links.firstElementChild)
 
       if (RETRY_COUNT >= 5) return true;
-      
+
       getData(id, true, true).then(data => {
         RETRY_COUNT++
         for (let ele of document.querySelectorAll(".jsv-icon")) {
