@@ -7,8 +7,8 @@
 // @match        https://e621.net/post_replacements/*
 // @match        https://e926.net/posts*
 // @match        https://e926.net/post_replacements/*
-// @updateURL    https://github.com/Tarrgon/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
-// @downloadURL  https://github.com/Tarrgon/e621JanitorSourceChecker/releases/latest/download/e621JanitorSourceChecker.user.js
+// @updateURL    https://github.com/mm12/e621-JSV/raw/refs/heads/mods/e621JanitorSourceChecker.user.js
+// @downloadURL  https://github.com/mm12/e621-JSV/raw/refs/heads/mods/e621JanitorSourceChecker.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=e621.net
 // @connect      api.fluffle.xyz
 // @connect      search.yiff.today
@@ -1318,3 +1318,4 @@ function addSource(result, immediate, event) {
   }
 
 })();
+
