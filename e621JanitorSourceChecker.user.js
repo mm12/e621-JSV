@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.47
+// @version      0.48
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -234,6 +234,21 @@ function addSource(result, immediate, event) {
     clearTimeout(timeout);
     timeout = setTimeout(sendSources, 500);
   }
+}
+
+async function getFluffleCache(postId) {
+  const fluffleCache = JSON.parse(await GM.getValue("fluffleCache", "[]"));
+
+  return fluffleCache.find(c => c.id == postId)?.data;
+}
+
+async function setFluffleCache(postId, data) {
+  const fluffleCache = JSON.parse(await GM.getValue("fluffleCache", "[]"));
+  fluffleCache.unshift({ id: postId, data });
+
+  if (fluffleCache.length >= 10) fluffleCache.pop();
+
+  await GM.setValue("fluffleCache", JSON.stringify(fluffleCache));
 }
 
 (async function () {
@@ -492,7 +507,7 @@ function addSource(result, immediate, event) {
 
     const listItem = document.createElement('li');
     listItem.classList.add('source-links');
-    listItem.append('Fluffle Sources:');
+    listItem.append('Fluffle:');
 
     if (results.length == 0) {
       listItem.appendChild(document.createElement('br'));
@@ -518,7 +533,7 @@ function addSource(result, immediate, event) {
 
     const listItem = document.createElement('li');
     listItem.classList.add('source-links');
-    listItem.append('Fluffle Sources:');
+    listItem.append('Fluffle:');
 
     listItem.appendChild(document.createElement('br'));
 
@@ -532,19 +547,26 @@ function addSource(result, immediate, event) {
     existingList.after(list);
   }
 
-  async function checkFluffle() {
-    const container = document.getElementById('image-container');
-    const fileType = container.getAttribute('data-file-ext');
+  async function checkFluffle(id, cachedData) {
+    let fluffleData;
 
-    if (fileType == 'webm' || fileType == 'mp4') return;
+    if (!cachedData) {
+      const container = document.getElementById('image-container');
+      const fileType = container.getAttribute('data-file-ext');
 
-    createTemporaryList();
+      if (fileType == 'webm' || fileType == 'mp4') return;
 
-    const fileUrl = container.getAttribute('data-file-url');
-    const imageBlob = await getImageBlob(fileUrl);
+      createTemporaryList();
 
-    const fluffleData = await getFluffleData(imageBlob);
-    const fluffleResults = fluffleData.results.filter(r => r.match == 'exact' && r.platform != 'e621');
+      const fileUrl = container.getAttribute('data-file-url');
+      const imageBlob = await getImageBlob(fileUrl);
+
+      fluffleData = await getFluffleData(imageBlob);
+    }
+
+    const fluffleResults = cachedData ?? fluffleData.results.filter(r => r.match == 'exact' && r.platform != 'e621');
+
+    if (!cachedData && fluffleResults.length > 0) await setFluffleCache(id, fluffleResults);
 
     addResults(fluffleResults);
 
@@ -1314,11 +1336,15 @@ function addSource(result, immediate, event) {
 
     let supported = await processData(data, links.length > 0)
 
+    let fluffleData = await getFluffleCache(id);
+
     if (links.length == 0) {
-      addKemonoData()
-      checkFluffle();
+      addKemonoData();
+      checkFluffle(id, fluffleData);
     } else if (!supported) {
-      checkFluffle()
+      checkFluffle(id, fluffleData);
+    } else if (fluffleData) {
+      checkFluffle(id, fluffleData);
     }
 
   } catch (e) {
