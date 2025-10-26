@@ -845,7 +845,7 @@ function addSource(result, immediate, event) {
       }
     }
 
-    return `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent(reason)}&source=${encodeURIComponent(source)}`
+    return `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent('[JSV] ' + reason)}&source=${encodeURIComponent(source)}`
   }
 
   async function processData(data, refreshable = true, containerSelector = ".source-links") {
@@ -1316,4 +1316,5 @@ function addSource(result, immediate, event) {
   } catch (e) {
     console.error(e)
   }
+
 })();
