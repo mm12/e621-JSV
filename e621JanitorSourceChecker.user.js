@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.48
+// @version      0.49
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -496,6 +496,9 @@ async function setFluffleCache(postId, data) {
   }
 
   function addResults(results) {
+    if (results.length == 0) return;
+
+    const realSourceLinks = Array.from(document.querySelectorAll(".source-link")).map(a => a.href);
     const existingList = document.querySelector('.post-sidebar-info');
 
     document.getElementById('fluffle-results')?.remove();
@@ -514,13 +517,15 @@ async function setFluffleCache(postId, data) {
       listItem.append(getRandomEmptyResultMessage());
     } else {
       for (const result of results) {
-        listItem.append(createSource(result, results.length == 1));
+        if (!realSourceLinks.includes(result.url)) listItem.append(createSource(result, results.length == 1));
       }
     }
 
-    list.appendChild(listItem);
+    if (listItem.childElementCount > 0) {
+      list.appendChild(listItem);
 
-    existingList.after(list);
+      existingList.after(list);
+    }
   }
 
   function createTemporaryList() {
@@ -875,7 +880,7 @@ async function setFluffleCache(postId, data) {
       }
     }
 
-    return `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl)}&reason=${encodeURIComponent('[JSV] ' + reason)}&source=${encodeURIComponent(source)}`
+    return `https://e621.net/post_replacements/new?post_id=${id}&url=${encodeURIComponent(sourceData.originalUrl ? sourceData.originalUrl : sourceData.url)}&reason=${encodeURIComponent('[JSV] ' + reason)}&source=${encodeURIComponent(source)}`
   }
 
   async function processData(data, refreshable = true, containerSelector = ".source-links") {
