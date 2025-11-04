@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.50
+// @version      0.51
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -87,7 +87,6 @@ function getImageBlob(fileUrl) {
       const canvas = document.createElement('canvas');
       canvas.width = calculatedWidth;
       canvas.height = calculatedHeight;
-
 
       image.onload = () => {
         const ctx = canvas.getContext('2d');
@@ -496,7 +495,8 @@ async function setFluffleCache(postId, data) {
   }
 
   function addResults(results) {
-    const realSourceLinks = Array.from(document.querySelectorAll(".source-link")).map(a => a.href);
+    const urls = []
+    const realSourceLinks = Array.from(document.querySelectorAll(".source-link > a")).map(a => a.href);
     const existingList = document.querySelector('.post-sidebar-info');
 
     document.getElementById('fluffle-results')?.remove();
@@ -515,7 +515,10 @@ async function setFluffleCache(postId, data) {
       listItem.append(getRandomEmptyResultMessage());
     } else {
       for (const result of results) {
-        if (!realSourceLinks.includes(result.url)) listItem.append(createSource(result, results.length == 1));
+        if (!realSourceLinks.includes(result.url)) {
+          listItem.append(createSource(result, results.length == 1));
+          urls.push(result.url)
+        }
       }
     }
 
@@ -524,6 +527,8 @@ async function setFluffleCache(postId, data) {
 
       existingList.after(list);
     }
+
+    return urls
   }
 
   function createTemporaryList() {
@@ -571,9 +576,7 @@ async function setFluffleCache(postId, data) {
 
     if (!cachedData && fluffleResults.length > 0) await setFluffleCache(id, fluffleResults);
 
-    addResults(fluffleResults);
-
-    const links = fluffleResults.map(a => a.url);
+    const links = addResults(fluffleResults);
 
     if (await anyLinksSupported(links)) {
       let linkElement = document.querySelector("#fluffle-results .source-links")
@@ -988,10 +991,13 @@ async function setFluffleCache(postId, data) {
 
     let approxAspectRatio = approximateAspectRatio(width / height, 50)
 
+    let anyMatches = false
+
     for (let [source, sourceData] of Object.entries(data)) {
       let matchingSourceEntry = allSourceLinks.find(e => decodeURI(e.href) == source || e.href == source)
 
       if (matchingSourceEntry) {
+        anyMatches = true
 
         let embeddedInfo = info.cloneNode(true)
 
@@ -1185,7 +1191,7 @@ async function setFluffleCache(postId, data) {
       }
     }
 
-    return true
+    return anyMatches
   }
 
   function processDataOnPostView(data) {
