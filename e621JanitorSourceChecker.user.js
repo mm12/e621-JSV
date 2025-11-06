@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.51
+// @version      0.52
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -256,10 +256,10 @@ async function setFluffleCache(postId, data) {
   if (window.location.href.startsWith("https://e621.net/post_replacements/")) {
     let params = new URLSearchParams(window.location.search)
 
-    let urlField = document.getElementById("replacement-uploader").querySelector("input[type='text']")
-    let noSourceBox = document.getElementById("no_source")
-    let sourceInput = document.querySelector(".upload-source-row > input")
-    let reasonField = document.querySelector("[list='reason-datalist']")
+    let urlField = await waitForSelector("#replacement-uploader > * input[type='text']")
+    let noSourceBox = await waitForSelector("#no_source")
+    let sourceInput = await waitForSelector(".upload-source-row > input")
+    let reasonField = await waitForSelector("[list='reason-datalist']")
 
     if (params.has("url")) urlField.value = params.get("url")
     if (params.has("reason")) reasonField.value = params.get("reason")
