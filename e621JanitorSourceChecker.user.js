@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.52
+// @version      0.53
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -987,7 +987,7 @@ async function setFluffleCache(postId, data) {
 
     let width = parseInt(document.querySelector("span[itemprop='width']").innerText)
     let height = parseInt(document.querySelector("span[itemprop='height']").innerText)
-    let fileType = document.querySelector("[data-file-ext]").getAttribute("data-file-ext")
+    let fileType = document.querySelector("#image-container[data-file-ext]").getAttribute("data-file-ext")
 
     let approxAspectRatio = approximateAspectRatio(width / height, 50)
 
