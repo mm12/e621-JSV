@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.52
+// @version      0.54
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -496,7 +496,12 @@ async function setFluffleCache(postId, data) {
 
   function addResults(results) {
     const urls = []
-    const realSourceLinks = Array.from(document.querySelectorAll(".source-link > a")).map(a => a.href);
+    const realSourceLinks = Array.from(document.querySelectorAll(".source-link > a")).map(a => {
+      let url = new URL(a.href);
+      if (url.hostname == 'twitter.com') url.hostname = 'x.com';
+      return url.toString();
+    });
+
     const existingList = document.querySelector('.post-sidebar-info');
 
     document.getElementById('fluffle-results')?.remove();
@@ -515,9 +520,11 @@ async function setFluffleCache(postId, data) {
       listItem.append(getRandomEmptyResultMessage());
     } else {
       for (const result of results) {
-        if (!realSourceLinks.includes(result.url)) {
+        let url = new URL(result.url);
+        if (url.hostname == 'twitter.com') url.hostname = 'x.com';
+        if (!realSourceLinks.includes(url.toString())) {
           listItem.append(createSource(result, results.length == 1));
-          urls.push(result.url)
+          urls.push(result.url);
         }
       }
     }
@@ -987,7 +994,7 @@ async function setFluffleCache(postId, data) {
 
     let width = parseInt(document.querySelector("span[itemprop='width']").innerText)
     let height = parseInt(document.querySelector("span[itemprop='height']").innerText)
-    let fileType = document.querySelector("[data-file-ext]").getAttribute("data-file-ext")
+    let fileType = document.querySelector("#image-container[data-file-ext]").getAttribute("data-file-ext")
 
     let approxAspectRatio = approximateAspectRatio(width / height, 50)
 
